@@ -8,16 +8,18 @@ LABELS = {
     ("dining_philosophers", "unsafe"): "DP (unsafe)",
     ("multiprocess_counter", "safe"): "MP (safe)",
     ("multiprocess_counter", "unsafe"): "MP (unsafe)",
+    ("readers_writers", "safe"): "RW (safe)",
+    ("readers_writers", "unsafe"): "RW (unsafe)",
 }
 
-DEMO_TYPES = ["producer_consumer", "dining_philosophers", "multiprocess_counter"]
+DEMO_TYPES = ["producer_consumer", "dining_philosophers", "multiprocess_counter", "readers_writers"]
 
 
 def build_stats_figure():
     """Builds a matplotlib Figure summarizing all logged demo runs."""
     rows = get_all_runs()
 
-    fig = Figure(figsize=(6.5, 12), dpi=100, constrained_layout=True)
+    fig = Figure(figsize=(6.5, 14.5), dpi=100, constrained_layout=True)
     fig.patch.set_facecolor("#fbfbf6")
 
     if not rows:
@@ -32,6 +34,7 @@ def build_stats_figure():
     pc_violation_totals = {"safe": 0, "unsafe": 0}
     dp_deadlock_totals = {"safe": 0, "unsafe": 0}
     mp_lost_totals = {"safe": 0, "unsafe": 0}
+    rw_violation_totals = {"safe": 0, "unsafe": 0}
 
     for demo_type, mode, duration, violations, deadlock, ts in rows:
         key = (demo_type, mode)
@@ -44,11 +47,12 @@ def build_stats_figure():
             dp_deadlock_totals[mode] = dp_deadlock_totals.get(mode, 0) + (deadlock or 0)
         if demo_type == "multiprocess_counter":
             mp_lost_totals[mode] = mp_lost_totals.get(mode, 0) + (violations or 0)
+        if demo_type == "readers_writers":
+            rw_violation_totals[mode] = rw_violation_totals.get(mode, 0) + (violations or 0)
 
     avg_durations = {k: duration_sums[k] / duration_counts[k] for k in duration_sums}
 
-    # --- Subplot 1: Average duration comparison ---
-    ax1 = fig.add_subplot(411)
+    ax1 = fig.add_subplot(511)
     labels, values, colors = [], [], []
     for demo_type in DEMO_TYPES:
         for mode in ["safe", "unsafe"]:
@@ -60,27 +64,30 @@ def build_stats_figure():
 
     ax1.bar(labels, values, color=colors)
     ax1.set_title("Average Run Duration (seconds)", fontsize=10)
-    ax1.tick_params(axis='x', labelsize=8)
+    ax1.tick_params(axis='x', labelsize=7)
 
-    # --- Subplot 2: Race condition violations ---
-    ax2 = fig.add_subplot(412)
+    ax2 = fig.add_subplot(512)
     ax2.bar(["Safe", "Unsafe"],
             [pc_violation_totals.get("safe", 0), pc_violation_totals.get("unsafe", 0)],
             color=["#6a994e", "#bc4749"])
     ax2.set_title("Total Capacity Violations (Producer-Consumer)", fontsize=10)
 
-    # --- Subplot 3: Deadlock occurrences ---
-    ax3 = fig.add_subplot(413)
+    ax3 = fig.add_subplot(513)
     ax3.bar(["Safe", "Unsafe"],
             [dp_deadlock_totals.get("safe", 0), dp_deadlock_totals.get("unsafe", 0)],
             color=["#6a994e", "#bc4749"])
     ax3.set_title("Deadlocks Detected (Dining Philosophers)", fontsize=10)
 
-    # --- Subplot 4: Lost updates (multiprocessing) ---
-    ax4 = fig.add_subplot(414)
+    ax4 = fig.add_subplot(514)
     ax4.bar(["Safe", "Unsafe"],
             [mp_lost_totals.get("safe", 0), mp_lost_totals.get("unsafe", 0)],
             color=["#6a994e", "#bc4749"])
     ax4.set_title("Lost Updates (Multi-Process Counter)", fontsize=10)
+
+    ax5 = fig.add_subplot(515)
+    ax5.bar(["Safe", "Unsafe"],
+            [rw_violation_totals.get("safe", 0), rw_violation_totals.get("unsafe", 0)],
+            color=["#6a994e", "#bc4749"])
+    ax5.set_title("Overlap Violations (Readers-Writers)", fontsize=10)
 
     return fig
