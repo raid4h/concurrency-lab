@@ -43,3 +43,11 @@ def get_all_runs():
     rows = cursor.fetchall()
     conn.close()
     return rows
+
+def clear_all_runs():
+    """Wipes all logged run data. Use before a final demo for a clean dataset."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM runs")
+    conn.commit()
+    conn.close()
