@@ -1,3 +1,8 @@
+"""
+GUI tab showing aggregated performance charts, built from every logged
+demo run in the SQLite database.
+"""
+
 import tkinter as tk
 from tkinter import ttk
 
@@ -11,15 +16,18 @@ import theme
 class StatsTab(tk.Frame):
     def __init__(self, parent):
         super().__init__(parent, bg=theme.BG_LIGHT)
-        self.canvas_widget = None
+        self.canvas_widget = None  # holds the embedded matplotlib widget once drawn
         self._build_ui()
 
     def _build_ui(self):
-        card = theme.build_card(self)
+        # Scrollable card: the chart is tall (6 stacked subplots), so this
+        # lets the user scroll down to see all of it at proper size.
+        card = theme.build_scrollable_card(self)
 
         tk.Label(card, text="Performance Statistics", font=theme.FONT_HEADER,
                  bg=theme.CARD_BG, fg=theme.TEXT_DARK).pack(anchor="w", padx=16, pady=(14, 0))
-        tk.Label(card, text="Aggregated data from every demo run logged to the database so far.",
+        tk.Label(card, text="Aggregated data from every demo run logged to the database so far. "
+                             "Scroll down to see all charts.",
                  font=theme.FONT_BODY, bg=theme.CARD_BG, fg=theme.TEXT_MUTED)\
             .pack(anchor="w", padx=16, pady=(0, 10))
 
@@ -34,20 +42,30 @@ class StatsTab(tk.Frame):
                                      command=self.clear_data)
         self.clear_btn.grid(row=0, column=1, padx=5)
 
+        # Plain frame to hold the chart - deliberately NOT using fill/expand,
+        # so the chart renders at its natural, correctly-spaced pixel size
+        # instead of being stretched/squished to match window size.
         self.chart_frame = tk.Frame(card, bg=theme.CARD_BG)
-        self.chart_frame.pack(fill="both", expand=True, padx=16, pady=(6, 16))
+        self.chart_frame.pack(padx=16, pady=(6, 16))
 
         self.refresh()
 
     def refresh(self):
+        """Rebuilds the chart from the latest database contents."""
         if self.canvas_widget:
-            self.canvas_widget.get_tk_widget().destroy()
+            self.canvas_widget.get_tk_widget().destroy()  # remove the old chart first
 
         fig = build_stats_figure()
         self.canvas_widget = FigureCanvasTkAgg(fig, master=self.chart_frame)
         self.canvas_widget.draw()
-        self.canvas_widget.get_tk_widget().pack(fill="both", expand=True)
+
+        # IMPORTANT: no fill="both", expand=True here. Packing "naked" like
+        # this keeps the widget at the figure's true pixel size (matching
+        # its figsize * dpi), which is what avoids the squished/overlapping
+        # text you saw before.
+        self.canvas_widget.get_tk_widget().pack()
 
     def clear_data(self):
+        """Wipes all logged data and refreshes the (now-empty) chart."""
         clear_all_runs()
         self.refresh()

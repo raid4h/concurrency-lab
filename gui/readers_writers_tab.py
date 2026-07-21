@@ -59,7 +59,7 @@ class ReadersWritersTab(tk.Frame):
                                       bg=theme.CARD_BG, fg=theme.TEXT_DARK)
         self.result_label.pack(pady=4)
 
-        self.log_area = scrolledtext.ScrolledText(card, width=70, height=8, state="disabled",
+        self.log_area = scrolledtext.ScrolledText(card, width=70, height=12, state="disabled",
                                                     font=theme.FONT_MONO, bg="#1b2e1f", fg="#eef2e6",
                                                     insertbackground="white", relief="flat")
         self.log_area.pack(pady=(6, 16), padx=16)

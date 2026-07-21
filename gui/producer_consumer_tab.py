@@ -25,7 +25,7 @@ class ProducerConsumerTab(tk.Frame):
         self.poll_queue()
 
     def _build_ui(self):
-        card = theme.build_card(self)
+        card = theme.build_scrollable_card(self)  # scrollable, so content can grow safely
 
         tk.Label(card, text="Producer–Consumer Problem", font=theme.FONT_HEADER,
                  bg=theme.CARD_BG, fg=theme.TEXT_DARK).pack(anchor="w", padx=16, pady=(14, 0))
