@@ -1,19 +1,14 @@
 """
-Builds the matplotlib Figure used in the Performance Stats tab.
-Reads every logged demo run from the SQLite database and produces
-one bar chart per metric, comparing 'safe' vs 'unsafe' runs.
-
-DESIGN NOTES:
-- Every bar gets a numeric label directly above it (even "0"), so a
-  correctly-zero safe run doesn't look like missing/broken data.
-- The first chart (10 bars across all 5 demo types) has its x-axis
-  labels rotated 40°, since 10 horizontal labels side-by-side collide.
+Aggregates every logged demo run from the SQLite database into plain
+Python dictionaries/lists. This file has ZERO external dependencies -
+just reads from logger.py. The actual drawing (turning these numbers
+into bar charts) happens separately in gui/stats_tab.py using plain
+Tkinter Canvas, so no charting library is needed anywhere in the app.
 """
 
-from matplotlib.figure import Figure
 from logger import get_all_runs
 
-# Short display labels for each (demo_type, mode) pair, shown on chart 1's x-axis
+# Short display labels for each (demo_type, mode) pair, used on the duration chart
 LABELS = {
     ("producer_consumer", "safe"): "PC (safe)",
     ("producer_consumer", "unsafe"): "PC (unsafe)",
@@ -27,7 +22,7 @@ LABELS = {
     ("deadlock_detection", "unsafe"): "DD (unsafe)",
 }
 
-# The order demo types appear on the duration chart
+# The order demo types should appear in on the duration chart
 DEMO_TYPES = [
     "producer_consumer",
     "dining_philosophers",
@@ -37,50 +32,21 @@ DEMO_TYPES = [
 ]
 
 
-def _bar_with_labels(ax, x_labels, values, colors, title):
+def compute_stats():
     """
-    Draws a bar chart with a numeric label ABOVE every bar (even ones
-    with height 0), and guarantees the y-axis always has some visible
-    headroom so those labels are never clipped.
+    Reads every logged run and returns a plain dict of aggregated
+    numbers, ready for the GUI to hand-draw as bar charts. Returns
+    None if no runs have been logged yet (so the GUI can show a
+    friendly "no data" message instead of empty charts).
     """
-    bars = ax.bar(x_labels, values, color=colors)
-
-    # Force some y-axis height even when every value is 0 - otherwise
-    # matplotlib's auto-range can be [0, 0], which renders unpredictably.
-    max_value = max(values) if values else 0
-    ax.set_ylim(0, max(max_value * 1.3, 1))
-
-    # Writes the actual number just above each bar, so "0" is always
-    # clearly readable text, not just an absent/invisible bar.
-    ax.bar_label(bars, padding=3, fontsize=8)
-
-    ax.set_title(title, fontsize=10)
-    return bars
-
-
-def build_stats_figure():
-    """Reads all logged runs and builds a Figure with 6 stacked bar charts."""
     rows = get_all_runs()  # each row: (demo_type, mode, duration, violations, deadlock, timestamp)
 
-    # constrained_layout auto-spaces subplots/titles based on rendered text size.
-    fig = Figure(figsize=(6.0, 15.5), dpi=100, constrained_layout=True)
-    fig.patch.set_facecolor("#fbfbf6")  # match the app's card background
-
-    # Give extra vertical breathing room between subplots (hspace) - this is
-    # what stops chart 1's ROTATED bottom labels from bumping into chart 2's
-    # title, which sits directly beneath it.
-    fig.set_constrained_layout_pads(w_pad=0.04, h_pad=0.04, hspace=0.16, wspace=0.05)
-
     if not rows:
-        ax = fig.add_subplot(111)
-        ax.text(0.5, 0.5, "No data yet.\nRun some demos first!",
-                 ha="center", va="center", fontsize=12)
-        ax.axis("off")
-        return fig
+        return None  # nothing logged yet
 
-    # --- accumulate totals across every logged run ---
-    duration_sums = {}
-    duration_counts = {}
+    # --- running totals, built up one row at a time ---
+    duration_sums = {}      # (demo_type, mode) -> total duration across all matching runs
+    duration_counts = {}    # (demo_type, mode) -> how many matching runs contributed to that sum
     pc_violation_totals = {"safe": 0, "unsafe": 0}
     dp_deadlock_totals = {"safe": 0, "unsafe": 0}
     mp_lost_totals = {"safe": 0, "unsafe": 0}
@@ -92,6 +58,8 @@ def build_stats_figure():
         duration_sums[key] = duration_sums.get(key, 0) + duration
         duration_counts[key] = duration_counts.get(key, 0) + 1
 
+        # Route each row's "violations"/"deadlock" count into the right bucket
+        # depending on which demo type logged it.
         if demo_type == "producer_consumer":
             pc_violation_totals[mode] = pc_violation_totals.get(mode, 0) + (violations or 0)
         if demo_type == "dining_philosophers":
@@ -103,71 +71,27 @@ def build_stats_figure():
         if demo_type == "deadlock_detection":
             dd_cycle_totals[mode] = dd_cycle_totals.get(mode, 0) + (deadlock or 0)
 
+    # Convert running sums into per-run averages (total time / number of runs)
     avg_durations = {k: duration_sums[k] / duration_counts[k] for k in duration_sums}
 
-    # --- Chart 1: average duration per demo/mode (10 bars - needs rotated labels) ---
-    ax1 = fig.add_subplot(611)
-    labels, values, colors = [], [], []
+    # Build the ordered list of {label, value, is_safe} entries for the duration chart
+    duration_chart_data = []
     for demo_type in DEMO_TYPES:
         for mode in ["safe", "unsafe"]:
             key = (demo_type, mode)
-            if key in avg_durations:
-                labels.append(LABELS[key])
-                values.append(round(avg_durations[key], 2))
-                colors.append("#6a994e" if mode == "safe" else "#bc4749")
+            if key in avg_durations:  # only include combos that were actually run at least once
+                duration_chart_data.append({
+                    "label": LABELS[key],
+                    "value": round(avg_durations[key], 2),
+                    "is_safe": mode == "safe"
+                })
 
-    _bar_with_labels(ax1, labels, values, colors, "Average Run Duration (seconds)")
-
-    # Rotate the 10 x-axis labels 40° and right-align them, so they no
-    # longer sit shoulder-to-shoulder and collide with each other.
-    for tick_label in ax1.get_xticklabels():
-        tick_label.set_rotation(40)
-        tick_label.set_ha("right")   # "right" keeps each label's end near its own bar
-        tick_label.set_fontsize(7.5)
-
-    # --- Chart 2: Producer-Consumer capacity violations (only 2 bars, no rotation needed) ---
-    ax2 = fig.add_subplot(612)
-    _bar_with_labels(
-        ax2, ["Safe", "Unsafe"],
-        [pc_violation_totals.get("safe", 0), pc_violation_totals.get("unsafe", 0)],
-        ["#6a994e", "#bc4749"],
-        "Total Capacity Violations (Producer-Consumer)"
-    )
-
-    # --- Chart 3: Dining Philosophers deadlocks (via timeout) ---
-    ax3 = fig.add_subplot(613)
-    _bar_with_labels(
-        ax3, ["Safe", "Unsafe"],
-        [dp_deadlock_totals.get("safe", 0), dp_deadlock_totals.get("unsafe", 0)],
-        ["#6a994e", "#bc4749"],
-        "Deadlocks Detected (Dining Philosophers)"
-    )
-
-    # --- Chart 4: Multi-process lost updates ---
-    ax4 = fig.add_subplot(614)
-    _bar_with_labels(
-        ax4, ["Safe", "Unsafe"],
-        [mp_lost_totals.get("safe", 0), mp_lost_totals.get("unsafe", 0)],
-        ["#6a994e", "#bc4749"],
-        "Lost Updates (Multi-Process Counter)"
-    )
-
-    # --- Chart 5: Readers-Writers overlap violations ---
-    ax5 = fig.add_subplot(615)
-    _bar_with_labels(
-        ax5, ["Safe", "Unsafe"],
-        [rw_violation_totals.get("safe", 0), rw_violation_totals.get("unsafe", 0)],
-        ["#6a994e", "#bc4749"],
-        "Overlap Violations (Readers-Writers)"
-    )
-
-    # --- Chart 6: Cycles found by the wait-for graph detector ---
-    ax6 = fig.add_subplot(616)
-    _bar_with_labels(
-        ax6, ["Safe", "Unsafe"],
-        [dd_cycle_totals.get("safe", 0), dd_cycle_totals.get("unsafe", 0)],
-        ["#6a994e", "#bc4749"],
-        "Cycles Found by Detector (Wait-For Graph)"
-    )
-
-    return fig
+    # Package everything into one dict the GUI can pull from directly
+    return {
+        "duration_chart": duration_chart_data,
+        "pc_violations": pc_violation_totals,
+        "dp_deadlocks": dp_deadlock_totals,
+        "mp_lost_updates": mp_lost_totals,
+        "rw_violations": rw_violation_totals,
+        "dd_cycles": dd_cycle_totals,
+    }
