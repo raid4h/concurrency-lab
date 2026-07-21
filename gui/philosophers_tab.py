@@ -1,9 +1,16 @@
 """
 GUI tab for the Dining Philosophers deadlock/prevention demo.
-Layout: a tall log/terminal box docked on the LEFT (fixed width), and
-the circular diagram + its legend TRULY CENTERED in the remaining space
-to the right, using place() for guaranteed centering (more reliable
-than pack()'s default centering, which depends on exact frame sizing).
+
+LAYOUT (this is the part that changed):
+- content_row is one fixed-height container.
+- The TERMINAL is docked to the RIGHT edge and stretched to fill the
+  FULL height of content_row (via place(relheight=1.0)) - this is what
+  gives it more vertical space, since it's no longer sized to match
+  the diagram's height.
+- The DIAGRAM is placed at relx=0.5 of content_row's FULL width (not
+  some leftover sub-frame), so it stays truly centered under "Ready"
+  no matter how wide the terminal is - the two are positioned
+  independently instead of splitting space with each other.
 """
 
 import tkinter as tk
@@ -18,16 +25,24 @@ from logger import log_run
 import theme
 from config import NUM_PHILOSOPHERS
 
+# Layout constants - kept at the top so they're easy to tweak later
+CONTENT_ROW_HEIGHT = 460   # total height reserved for the terminal+diagram row
+TERMINAL_WIDTH = 260         # fixed pixel width of the right-docked terminal
+DIAGRAM_SIZE = 240             # width/height of the circular diagram canvas
+
 
 class DiningPhilosophersTab(tk.Frame):
-    # Maps each philosopher state to the color drawn on the diagram
+    # Maps each philosopher state to the color drawn on the diagram.
+    # Chosen so every state has a genuinely different HUE from its
+    # neighbors (not just a lighter/darker shade of the same color).
+    #  Still a woodland/forest palette: leaves, bark, mist, berries.
     STATE_COLORS = {
-        "thinking": "#cbd5c1",
-        "hungry": "#dda15e",
-        "picked_first_fork": "#e08e45",
-        "eating": "#6a994e",
-        "done": "#a8c3a1",
-        "stuck": "#bc4749",
+        "thinking": "#cbd5c1",           # pale sage green - calm, idle
+        "hungry": "#e9c46a",             # golden yellow - waiting/wanting (autumn-leaf yellow)
+        "picked_first_fork": "#7f5539",  # tree-bark brown - holds exactly one resource
+        "eating": "#6a994e",             # forest green - actively eating
+        "done": "#8d99ae",               # misty blue-grey - finished
+        "stuck": "#bc4749",              # berry red - deadlocked
     }
 
     def __init__(self, parent):
@@ -42,7 +57,7 @@ class DiningPhilosophersTab(tk.Frame):
 
     def _build_ui(self):
         # Wraps everything in a scrollable card (safety net if content
-        # ever grows taller than the visible window).
+        # is ever taller than the visible window).
         card = theme.build_scrollable_card(self)
 
         # --- Title + short description, full width at the top ---
@@ -64,59 +79,67 @@ class DiningPhilosophersTab(tk.Frame):
                                       style="Unsafe.TButton", command=self.run_unsafe_demo)
         self.unsafe_btn.grid(row=0, column=1, padx=6)
 
-        # --- Status line, full width, centered ---
+        # --- Status line, full width, centered - this is what we're matching below ---
         self.status_label = tk.Label(card, text="Ready.", font=theme.FONT_BODY,
                                       bg=theme.CARD_BG, fg=theme.TEXT_DARK)
         self.status_label.pack(pady=8)
 
-        # --- Two-column row: TERMINAL docked left, DIAGRAM centered in the rest ---
-        # This row holds both columns side by side. We give it a fixed,
-        # generous height so place()'s percentage-based centering below
-        # has a stable area to center within.
-        content_row = tk.Frame(card, bg=theme.CARD_BG, height=420)
+        # --- content_row: one fixed-size container holding BOTH the
+        # terminal and the diagram, each positioned independently with
+        # place() so neither one's size affects where the other sits. ---
+        content_row = tk.Frame(card, bg=theme.CARD_BG, height=CONTENT_ROW_HEIGHT)
         content_row.pack(fill="both", expand=True, padx=16, pady=(0, 16))
-        content_row.pack_propagate(False)  # keep the 420px height even though children are smaller
+        # pack_propagate(False) locks content_row at CONTENT_ROW_HEIGHT even
+        # though its children (placed, not packed) don't "ask" for a size.
+        content_row.pack_propagate(False)
 
-        # LEFT column: the terminal/log box, docked to the left edge with
-        # a fixed pixel width (so it doesn't resize when the window does).
-        left_col = tk.Frame(content_row, bg=theme.CARD_BG, width=230)
-        left_col.pack(side="left", fill="y", padx=(0, 14))
-        left_col.pack_propagate(False)  # keep the 230px width regardless of the log box's own sizing
+        # --- TERMINAL: docked to the right edge, stretched to fill the
+        # ENTIRE height of content_row. This is what gives it more
+        # vertical room than before - it's no longer sized to match
+        # the diagram, it just takes the full height on its own. ---
+        terminal_frame = tk.Frame(content_row, bg=theme.CARD_BG)
+        # FIX: pass width=TERMINAL_WIDTH directly to place() itself (not
+        # just the Frame constructor). This forces place() to size the
+        # frame at EXACTLY TERMINAL_WIDTH pixels, ignoring whatever size
+        # its children ask for - this is what was missing before, which
+        # let the tiny ScrolledText below shrink the whole frame down.
+        terminal_frame.place(relx=1.0, rely=0.0, anchor="ne",
+                              width=TERMINAL_WIDTH, relheight=1.0)
+        # Belt-and-suspenders: also explicitly disable propagation, so
+        # even if place()'s width were ever omitted again, the frame
+        # still wouldn't shrink to match its children.
+        terminal_frame.pack_propagate(False)
 
-        self.log_area = scrolledtext.ScrolledText(left_col, width=28, height=20, state="disabled",
+        # NOTE: Text/ScrolledText 'width' is measured in CHARACTERS, not
+        # pixels - that's what caused the original bug (width=1 meant
+        # "1 character wide"). We drop that parameter entirely now,
+        # since fill="both" + expand=True below makes the actual pixel
+        # size follow terminal_frame's real size instead.
+        self.log_area = scrolledtext.ScrolledText(terminal_frame, state="disabled",
                                                     font=theme.FONT_MONO, bg="#1b2e1f", fg="#eef2e6",
                                                     insertbackground="white", relief="flat")
-        # fill="both", expand=True makes the log box stretch to fill the
-        # entire fixed-width left_col frame, however wide/tall that ends up.
         self.log_area.pack(fill="both", expand=True)
 
-        # RIGHT area: takes up all remaining horizontal space next to the terminal.
-        right_col = tk.Frame(content_row, bg=theme.CARD_BG)
-        right_col.pack(side="left", fill="both", expand=True)
-
-        # diagram_frame holds the canvas + legend together as a single unit,
-        # so they move/center as one block.
-        diagram_frame = tk.Frame(right_col, bg=theme.CARD_BG)
-
-        # place(relx=0.5, rely=0.0, anchor="n") is the key centering trick:
-        # relx=0.5 means "50% across right_col's width" (i.e. dead center),
-        # anchor="n" means diagram_frame's TOP-CENTER point sits at that
-        # spot. This stays perfectly centered even if right_col's width
-        # changes (e.g. window resize), unlike pack()'s centering, which
-        # can behave inconsistently depending on sibling widget sizing.
+        # --- DIAGRAM: centered at the exact horizontal midpoint of
+        # content_row's FULL width (not a sub-frame that excludes the
+        # terminal). Since this uses place() independently of
+        # terminal_frame above, it stays centered under "Ready" no
+        # matter how wide TERMINAL_WIDTH is. ---
+        diagram_frame = tk.Frame(content_row, bg=theme.CARD_BG)
+        # relx=0.5 + anchor="n" pins diagram_frame's TOP-CENTER point to
+        # the horizontal midpoint of content_row, at the very top (rely=0).
         diagram_frame.place(relx=0.5, rely=0.0, anchor="n")
 
-        # Smaller diagram (260x260) so it comfortably fits beside the terminal.
-        self.canvas = tk.Canvas(diagram_frame, width=260, height=260, bg="white",
+        self.canvas = tk.Canvas(diagram_frame, width=DIAGRAM_SIZE, height=DIAGRAM_SIZE, bg="white",
                                  highlightbackground=theme.BORDER, highlightthickness=1)
-        self.canvas.pack()  # centered within diagram_frame automatically, since it's the only child
+        self.canvas.pack()  # only child of diagram_frame, so it's centered within it automatically
 
         legend = tk.Label(diagram_frame,
-                           text="Grey = thinking    Amber = hungry    Orange = has 1 fork\n"
+                           text="Grey = thinking    Yellow = hungry    Brown = has 1 fork\n"
                                 "Green = eating    Red = stuck (deadlocked)",
                            font=("Segoe UI", 8), bg=theme.CARD_BG, fg=theme.TEXT_MUTED,
                            justify="center")
-        legend.pack(pady=(8, 0))  # sits directly under the diagram, as requested
+        legend.pack(pady=(8, 0))  # sits directly under the diagram
 
         self.draw_table()  # draw the initial (all "thinking") state
 
@@ -137,14 +160,14 @@ class DiningPhilosophersTab(tk.Frame):
         """
         Redraws the round table and all 5 philosopher nodes, positioned
         in a circle and color-coded by their current state. Coordinates
-        are scaled to fit the smaller 260x260 canvas.
+        are scaled to fit the DIAGRAM_SIZE x DIAGRAM_SIZE canvas.
         """
         self.canvas.delete("all")  # wipe the canvas before redrawing everything
 
-        cx, cy = 130, 130   # center point of the (smaller) canvas
-        table_r = 45          # radius of the round table graphic
-        phil_r = 90             # distance of each philosopher node from the center
-        node_r = 22              # radius of each philosopher's own circle
+        cx, cy = DIAGRAM_SIZE / 2, DIAGRAM_SIZE / 2   # center point of the canvas
+        table_r = 42          # radius of the round table graphic
+        phil_r = 82             # distance of each philosopher node from the center
+        node_r = 20              # radius of each philosopher's own circle
 
         # Draw the round table first, so philosopher nodes render on top of it
         self.canvas.create_oval(cx - table_r, cy - table_r, cx + table_r, cy + table_r,
@@ -161,8 +184,8 @@ class DiningPhilosophersTab(tk.Frame):
 
             self.canvas.create_oval(x - node_r, y - node_r, x + node_r, y + node_r,
                                      fill=color, outline="white", width=2)
-            self.canvas.create_text(x, y, text=f"P{i}", font=("Segoe UI", 10, "bold"), fill="white")
-            self.canvas.create_text(x, y + node_r + 11, text=state, font=("Segoe UI", 7), fill=theme.TEXT_MUTED)
+            self.canvas.create_text(x, y, text=f"P{i}", font=("Segoe UI", 9, "bold"), fill="white")
+            self.canvas.create_text(x, y + node_r + 10, text=state, font=("Segoe UI", 7), fill=theme.TEXT_MUTED)
 
     def poll_queue(self):
         """Runs every 50ms: checks for new events from the background thread."""

@@ -3,9 +3,10 @@ GUI tab for the Deadlock DETECTION demo. Draws the live wait-for graph
 as a set of nodes (philosophers) with arrows (who's waiting on whom),
 highlighting in red whichever nodes/edges form a detected cycle.
 
-Layout: terminal docked on the LEFT (fixed width), graph diagram + legend
-TRULY CENTERED in the remaining space via place(), same technique as
-the Dining Philosophers tab.
+Same layout technique as the Philosophers tab: terminal docked to the
+RIGHT edge and stretched to fill the full height (more vertical room),
+graph diagram centered at the true horizontal midpoint of the row
+(independent of the terminal's width), matching "Ready" above it.
 """
 
 import tkinter as tk
@@ -19,6 +20,11 @@ from deadlock_detector import run_detection_demo
 from logger import log_run
 import theme
 from config import NUM_PHILOSOPHERS  # reuses the same count (5) as the other Philosophers tab
+
+# Layout constants - kept at the top so they're easy to tweak later
+CONTENT_ROW_HEIGHT = 460   # total height reserved for the terminal+diagram row
+TERMINAL_WIDTH = 260         # fixed pixel width of the right-docked terminal
+DIAGRAM_SIZE = 240             # width/height of the graph diagram canvas
 
 
 class DeadlockDetectorTab(tk.Frame):
@@ -61,40 +67,42 @@ class DeadlockDetectorTab(tk.Frame):
                                       style="Unsafe.TButton", command=self.run_unsafe_demo)
         self.unsafe_btn.grid(row=0, column=1, padx=6)
 
-        # --- Status line, full width, centered ---
+        # --- Status line, full width, centered - this is what we're matching below ---
         self.status_label = tk.Label(card, text="Ready.", font=theme.FONT_BODY,
                                       bg=theme.CARD_BG, fg=theme.TEXT_DARK)
         self.status_label.pack(pady=8)
 
-        # --- Two-column row: TERMINAL docked left, GRAPH centered in the rest ---
-        content_row = tk.Frame(card, bg=theme.CARD_BG, height=420)
+        # --- content_row: one fixed-size container holding BOTH the
+        # terminal and the diagram, positioned independently with place(). ---
+        content_row = tk.Frame(card, bg=theme.CARD_BG, height=CONTENT_ROW_HEIGHT)
         content_row.pack(fill="both", expand=True, padx=16, pady=(0, 16))
-        content_row.pack_propagate(False)  # keep a stable 420px height for place() to center within
+        content_row.pack_propagate(False)  # lock the height so place()'s percentages stay stable
 
-        # LEFT column: the terminal/log box, docked left with a fixed pixel width
-        left_col = tk.Frame(content_row, bg=theme.CARD_BG, width=230)
-        left_col.pack(side="left", fill="y", padx=(0, 14))
-        left_col.pack_propagate(False)  # keep the 230px width regardless of the log box's own sizing
+        # --- TERMINAL: docked to the right edge, stretched to fill the
+        # entire height of content_row for maximum vertical space. ---
+        terminal_frame = tk.Frame(content_row, bg=theme.CARD_BG)
+        # FIX: pass width=TERMINAL_WIDTH directly to place() itself (not
+        # just the Frame constructor), forcing an exact pixel width that
+        # can't be overridden by the ScrolledText child's own size request.
+        terminal_frame.place(relx=1.0, rely=0.0, anchor="ne",
+                              width=TERMINAL_WIDTH, relheight=1.0)
+        # Extra safety net: disable child-based auto-resizing entirely.
+        terminal_frame.pack_propagate(False)
 
-        self.log_area = scrolledtext.ScrolledText(left_col, width=28, height=20, state="disabled",
+        # Dropped the old 'width=1' (character-based, not pixels - the
+        # actual cause of the too-thin terminal). fill="both" below makes
+        # the real pixel size follow terminal_frame's actual size instead.
+        self.log_area = scrolledtext.ScrolledText(terminal_frame, state="disabled",
                                                     font=theme.FONT_MONO, bg="#1b2e1f", fg="#eef2e6",
                                                     insertbackground="white", relief="flat")
-        self.log_area.pack(fill="both", expand=True)  # stretch to fill the fixed-width left_col
+        self.log_area.pack(fill="both", expand=True)  # stretch to fill terminal_frame's actual size
 
-        # RIGHT area: everything to the right of the terminal
-        right_col = tk.Frame(content_row, bg=theme.CARD_BG)
-        right_col.pack(side="left", fill="both", expand=True)
-
-        # graph_frame holds the canvas + legend as one block, centered as a unit
-        graph_frame = tk.Frame(right_col, bg=theme.CARD_BG)
-
-        # Same centering trick as the Philosophers tab: relx=0.5 pins the
-        # horizontal midpoint of graph_frame to the exact center of
-        # right_col, and stays correct even if the window is resized.
+        # --- GRAPH DIAGRAM: centered at the true horizontal midpoint of
+        # content_row's full width, independent of the terminal's size. ---
+        graph_frame = tk.Frame(content_row, bg=theme.CARD_BG)
         graph_frame.place(relx=0.5, rely=0.0, anchor="n")
 
-        # Smaller diagram (260x260) so it comfortably fits beside the terminal.
-        self.canvas = tk.Canvas(graph_frame, width=260, height=260, bg="white",
+        self.canvas = tk.Canvas(graph_frame, width=DIAGRAM_SIZE, height=DIAGRAM_SIZE, bg="white",
                                  highlightbackground=theme.BORDER, highlightthickness=1)
         self.canvas.pack()
 
@@ -123,13 +131,13 @@ class DeadlockDetectorTab(tk.Frame):
     def draw_graph(self):
         """
         Redraws the wait-for graph based on self.graph / self.cycle.
-        Coordinates are scaled to fit the smaller 260x260 canvas.
+        Coordinates are scaled to fit the DIAGRAM_SIZE x DIAGRAM_SIZE canvas.
         """
         self.canvas.delete("all")
 
-        cx, cy = 130, 130   # center point of the (smaller) canvas
-        radius = 88           # distance of each philosopher node from the center
-        node_r = 20             # radius of each drawn node circle
+        cx, cy = DIAGRAM_SIZE / 2, DIAGRAM_SIZE / 2   # center point of the canvas
+        radius = 82           # distance of each philosopher node from the center
+        node_r = 18             # radius of each drawn node circle
 
         cycle_set = set(self.cycle) if self.cycle else set()  # for quick "is this in the cycle?" checks
 
@@ -154,7 +162,7 @@ class DeadlockDetectorTab(tk.Frame):
             edge_color = theme.DANGER if is_cycle_edge else theme.TEXT_MUTED
 
             self.canvas.create_line(x1, y1, x2, y2, fill=edge_color, width=2,
-                                     arrow=tk.LAST, arrowshape=(10, 12, 4))
+                                     arrow=tk.LAST, arrowshape=(9, 11, 4))
 
         # Draw the philosopher nodes on top of the arrows
         for i in range(NUM_PHILOSOPHERS):
@@ -162,7 +170,7 @@ class DeadlockDetectorTab(tk.Frame):
             color = theme.DANGER if i in cycle_set else theme.BORDER
             self.canvas.create_oval(x - node_r, y - node_r, x + node_r, y + node_r,
                                      fill=color, outline="white", width=2)
-            self.canvas.create_text(x, y, text=f"P{i}", font=("Segoe UI", 10, "bold"), fill="white")
+            self.canvas.create_text(x, y, text=f"P{i}", font=("Segoe UI", 9, "bold"), fill="white")
 
     def poll_queue(self):
         """Runs every 50ms: checks for new events from background threads."""

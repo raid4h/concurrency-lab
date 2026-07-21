@@ -19,8 +19,8 @@ class ConcurrencyLabApp:
     def __init__(self, root):
         self.root = root
         self.root.title("ConcurrencyLab - OS Concurrency Demonstrator")
-        self.root.geometry("680x820")   # initial window size (a bit wider, room for scrollbar)
-        self.root.minsize(680, 600)     # can go shorter now - tabs scroll instead of clipping
+        self.root.geometry("940x850")   # wider: room for a centered diagram + right-docked terminal
+        self.root.minsize(880, 600)     # keeps enough width that they never overlap
 
         # Apply the forest color theme and build the dark header banner
         style = theme.apply_theme(root)
