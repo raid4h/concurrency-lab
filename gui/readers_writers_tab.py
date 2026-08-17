@@ -31,7 +31,7 @@ class ReadersWritersTab(tk.Frame):
         tk.Label(card,
                  text=f"{NUM_READERS} readers and {NUM_WRITERS} writers share one document. "
                       f"Readers may overlap each other, but writers need exclusive access. "
-                      f"Uses threading.Semaphore, matching the classic textbook solution.",
+                      f"Uses threading.Semaphore.",
                  font=theme.FONT_BODY, bg=theme.CARD_BG, fg=theme.TEXT_MUTED,
                  wraplength=560, justify="left").pack(anchor="w", padx=16, pady=(0, 10))
 

@@ -9,3 +9,4 @@ INCREMENTS_PER_PROCESS = 40
 NUM_READERS = 3
 NUM_WRITERS = 2
 RW_ITERATIONS = 4
+NUM_WORKERS = 4  # number of threads in the file-processing thread pool

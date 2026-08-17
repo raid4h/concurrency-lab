@@ -11,7 +11,8 @@ from .producer_consumer_tab import ProducerConsumerTab
 from .philosophers_tab import DiningPhilosophersTab
 from .process_tab import ProcessTab
 from .readers_writers_tab import ReadersWritersTab
-from .deadlock_detector_tab import DeadlockDetectorTab  # NEW
+from .deadlock_detector_tab import DeadlockDetectorTab
+from .file_processor_tab import FileProcessorTab  # practical thread-pool demo
 from .stats_tab import StatsTab
 
 
@@ -35,13 +36,14 @@ class ConcurrencyLabApp:
         phil_tab = DiningPhilosophersTab(notebook)
         proc_tab = ProcessTab(notebook)
         rw_tab = ReadersWritersTab(notebook)
-        dd_tab = DeadlockDetectorTab(notebook)  # NEW
+        dd_tab = DeadlockDetectorTab(notebook)
+        fp_tab = FileProcessorTab(notebook)  # NEW: practical thread-pool demo
         stats_tab = StatsTab(notebook)
 
-        # Register each tab with the notebook, in the order they should appear
         notebook.add(pc_tab, text="  Producer – Consumer  ")
         notebook.add(phil_tab, text="  Dining Philosophers  ")
         notebook.add(proc_tab, text="  Multi-Process Counter  ")
         notebook.add(rw_tab, text="  Readers – Writers  ")
-        notebook.add(dd_tab, text="  Deadlock Detector  ")  # NEW
+        notebook.add(dd_tab, text="  Deadlock Detector  ")
+        notebook.add(fp_tab, text="  File Processor  ")  # NEW
         notebook.add(stats_tab, text="  Performance Stats  ")
