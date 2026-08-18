@@ -33,23 +33,23 @@ Most beginner OS projects (task managers, file explorers, shell clones) are sing
 Built entirely on **Python's standard library** — `tkinter`, `sqlite3`, `threading`, `multiprocessing`. No pip installs required.
 
 ## How to run
-git clone <your-repo-url>
-cd concurrency-lab
-python main.py
+git clone <https://github.com/raid4h/concurrency-lab> \
+cd concurrency-lab \
+python main.py \
 
 That's it — no dependencies to install.
 
 ## Project structure
 concurrency-lab/
-├── main.py entry point
-├── config.py shared constants
-├── theme.py forest color theme, shared UI helpers
-├── gui/ one file per tab
+├── main.py entry point \
+├── config.py shared constants \
+├── theme.py forest color theme, shared UI helpers \
+├── gui/ one file per tab \
 ├── buffer.py, philosophers.py, multiproc_worker.py,
 │ readers_writers.py, deadlock_detector.py, file_processor.py
-│ the actual concurrency logic per demo
-├── logger.py, stats.py SQLite logging + aggregation
+│ the actual concurrency logic per demo \
+├── logger.py, stats.py SQLite logging + aggregation \
 ├── test_*.py scripts used to verify race conditions/
-│ deadlocks actually reproduce as intended
+│ deadlocks actually reproduce as intended \
 
 
