@@ -134,12 +134,19 @@ class DiningPhilosophersTab(tk.Frame):
                                  highlightbackground=theme.BORDER, highlightthickness=1)
         self.canvas.pack()  # only child of diagram_frame, so it's centered within it automatically
 
-        legend = tk.Label(diagram_frame,
-                           text="Grey = thinking    Yellow = hungry    Brown = has 1 fork\n"
-                                "Green = eating    Red = stuck (deadlocked)",
-                           font=("Segoe UI", 8), bg=theme.CARD_BG, fg=theme.TEXT_MUTED,
-                           justify="center")
-        legend.pack(pady=(8, 0))  # sits directly under the diagram
+        # Legend items pull their colors DIRECTLY from STATE_COLORS above,
+        # so the swatch shown is guaranteed to exactly match what's drawn
+        # on the diagram - no risk of the text description drifting out
+        # of sync with the actual rendered colors.
+        legend_items = [
+            (self.STATE_COLORS["thinking"], "Thinking"),
+            (self.STATE_COLORS["hungry"], "Hungry"),
+            (self.STATE_COLORS["picked_first_fork"], "Has 1 fork"),
+            (self.STATE_COLORS["eating"], "Eating"),
+            (self.STATE_COLORS["stuck"], "Stuck (deadlocked)"),
+        ]
+        legend = theme.build_legend(diagram_frame, legend_items, columns=3)
+        legend.pack(pady=(8, 0))
 
         self.draw_table()  # draw the initial (all "thinking") state
 

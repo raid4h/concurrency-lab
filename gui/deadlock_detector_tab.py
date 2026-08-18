@@ -106,12 +106,19 @@ class DeadlockDetectorTab(tk.Frame):
                                  highlightbackground=theme.BORDER, highlightthickness=1)
         self.canvas.pack()
 
-        legend = tk.Label(graph_frame,
-                           text="Grey = not waiting    Arrow = 'is waiting for'\n"
-                                "Red = part of a detected deadlock cycle",
-                           font=("Segoe UI", 8), bg=theme.CARD_BG, fg=theme.TEXT_MUTED,
-                           justify="center")
+        # Only the two NODE colors get swatches here - "arrow" isn't a
+        # fill color, it's a line/shape, so it gets a plain text note
+        # underneath instead of a (misleading) colored square.
+        legend_items = [
+            (theme.BORDER, "Not waiting"),
+            (theme.DANGER, "Part of a detected cycle"),
+        ]
+        legend = theme.build_legend(graph_frame, legend_items, columns=2)
         legend.pack(pady=(8, 0))
+
+        arrow_note = tk.Label(graph_frame, text="Arrow = 'is waiting for'",
+                               font=("Segoe UI", 8), bg=theme.CARD_BG, fg=theme.TEXT_MUTED)
+        arrow_note.pack(pady=(2, 0))
 
         self.draw_graph()  # draw the initial (empty) graph before anything runs
 

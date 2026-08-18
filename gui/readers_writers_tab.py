@@ -50,9 +50,16 @@ class ReadersWritersTab(tk.Frame):
                                  highlightbackground=theme.BORDER, highlightthickness=1)
         self.canvas.pack(pady=10, padx=16)
 
-        legend = tk.Label(card,
-                           text="Grey = idle    Green = reading    Amber = writing    Red = overlap violation",
-                           font=("Segoe UI", 8), bg=theme.CARD_BG, fg=theme.TEXT_MUTED)
+        # Colors pulled directly from the _color_for() mapping used by
+        # draw_state(), so the legend can never drift out of sync with
+        # what's actually drawn on the reader/writer boxes.
+        legend_items = [
+            (theme.BORDER, "Idle"),
+            (theme.ACCENT, "Reading"),
+            (theme.WARNING, "Writing"),
+            (theme.DANGER, "Overlap violation"),
+        ]
+        legend = theme.build_legend(card, legend_items, columns=4)
         legend.pack(pady=(0, 6))
 
         self.result_label = tk.Label(card, text="", font=theme.FONT_BODY,

@@ -36,12 +36,19 @@ def apply_theme(root):
               background=[("selected", ACCENT)],
               foreground=[("selected", TEXT_LIGHT)])
 
+    # cursor="hand2" here applies to EVERY button in the app that uses
+    # this style - since every ttk.Button across all 7 tabs is created
+    # with style="Safe.TButton" or style="Unsafe.TButton", this one
+    # change is enough to add a hand cursor everywhere, with no need
+    # to edit each individual button in each tab file.
     style.configure("Safe.TButton", font=FONT_HEADER, padding=10,
-                     background=SUCCESS, foreground=TEXT_LIGHT, borderwidth=0)
+                     background=SUCCESS, foreground=TEXT_LIGHT, borderwidth=0,
+                     cursor="hand2")
     style.map("Safe.TButton", background=[("active", "#557a3d"), ("disabled", "#bcd1a8")])
 
     style.configure("Unsafe.TButton", font=FONT_HEADER, padding=10,
-                     background=DANGER, foreground=TEXT_LIGHT, borderwidth=0)
+                     background=DANGER, foreground=TEXT_LIGHT, borderwidth=0,
+                     cursor="hand2")
     style.map("Unsafe.TButton", background=[("active", "#9c3a3c"), ("disabled", "#e0b3b3")])
 
     return style
@@ -64,8 +71,7 @@ def build_header(root, subtitle):
 def build_card(parent):
     """
     A plain, NON-scrolling white 'card' container. Kept for reference,
-    but build_scrollable_card() below should be used for all real tabs,
-    since tab content can grow taller than the window over time.
+    but build_scrollable_card() below should be used for all real tabs.
     """
     outer = tk.Frame(parent, bg=BG_LIGHT)
     outer.pack(fill="both", expand=True, padx=16, pady=16)
@@ -78,40 +84,24 @@ def build_card(parent):
 def build_scrollable_card(parent):
     """
     Like build_card(), but wraps the white 'card' inside a scrollable
-    Tkinter Canvas + Scrollbar. This means a tab's content (buttons,
-    diagrams, log boxes) can be TALLER than the visible window without
-    anything getting clipped off - the user just scrolls to see the rest.
-
-    This fixes two problems at once:
-    1) Tabs with lots of content (Dining Philosophers, Deadlock Detector)
-       no longer get their bottom half cut off by a too-short window.
-    2) The Performance Stats tab's matplotlib chart can be shown at its
-       true, correctly-spaced size instead of being force-squished to
-       fit a fixed window height (which was causing the overlapping text).
+    Tkinter Canvas + Scrollbar, so a tab's content can be taller than
+    the visible window without anything getting clipped off.
     """
-    # Outer frame: just gives consistent padding around the whole scroll area
     outer = tk.Frame(parent, bg=BG_LIGHT)
     outer.pack(fill="both", expand=True, padx=16, pady=16)
 
-    # scroll_canvas is the SCROLL VIEWPORT (not a diagram canvas - just a
-    # generic Tkinter Canvas being used as a scrollable container here).
     scroll_canvas = tk.Canvas(outer, bg=BG_LIGHT, highlightthickness=0)
     scrollbar = ttk.Scrollbar(outer, orient="vertical", command=scroll_canvas.yview)
 
-    # The actual white "card" lives INSIDE scroll_canvas as an embedded window.
     card = tk.Frame(scroll_canvas, bg=CARD_BG, highlightbackground=BORDER, highlightthickness=1)
     card_window_id = scroll_canvas.create_window((0, 0), window=card, anchor="nw")
 
     def _update_scrollregion(event):
-        # Every time the card's content changes size (e.g. a chart is drawn),
-        # tell the canvas exactly how much area is now scrollable.
         scroll_canvas.configure(scrollregion=scroll_canvas.bbox("all"))
 
     card.bind("<Configure>", _update_scrollregion)
 
     def _match_card_width(event):
-        # Keep the card exactly as wide as the visible viewport, so text
-        # wraps correctly and nothing looks squeezed sideways.
         scroll_canvas.itemconfig(card_window_id, width=event.width)
 
     scroll_canvas.bind("<Configure>", _match_card_width)
@@ -120,9 +110,6 @@ def build_scrollable_card(parent):
     scroll_canvas.pack(side="left", fill="both", expand=True)
     scrollbar.pack(side="right", fill="y")
 
-    # Mouse wheel scrolling: only bound while the mouse is actually
-    # hovering over THIS canvas. Without this Enter/Leave guard, switching
-    # tabs would leave the wheel accidentally scrolling the wrong tab.
     def _on_enter(event):
         scroll_canvas.bind_all(
             "<MouseWheel>",
@@ -136,3 +123,40 @@ def build_scrollable_card(parent):
     scroll_canvas.bind("<Leave>", _on_leave)
 
     return card
+
+
+def build_legend(parent, items, columns=3):
+    """
+    Builds a small legend made of real colored SWATCHES next to their
+    descriptions, instead of describing colors by name in plain text
+    (e.g. the old "Brown = has 1 fork"). A viewer sees the EXACT color
+    being referenced, which is clearer and looks more polished.
+
+    'items' is a list of (color_hex, label_text) tuples. Items wrap
+    onto multiple rows automatically once 'columns' is exceeded, so
+    legends with more entries (like Dining Philosophers' 5 states)
+    don't run off the edge of the card.
+    """
+    legend_frame = tk.Frame(parent, bg=CARD_BG)
+
+    for i, (color, label_text) in enumerate(items):
+        row = i // columns   # integer division: which row this item lands on
+        col = i % columns     # remainder: which column within that row
+
+        # One small container per legend entry, so its swatch and text
+        # stay visually grouped together as a single unit.
+        entry = tk.Frame(legend_frame, bg=CARD_BG)
+        entry.grid(row=row, column=col, padx=8, pady=2, sticky="w")
+
+        # The colored square itself. A tiny Canvas is used (rather than
+        # a colored Label background) because Canvas lets us draw a
+        # crisp square WITH a thin border, which reads more clearly as
+        # an intentional "swatch" than a borderless colored rectangle.
+        swatch = tk.Canvas(entry, width=12, height=12, highlightthickness=0, bg=CARD_BG)
+        swatch.create_rectangle(1, 1, 12, 12, fill=color, outline=BORDER)
+        swatch.pack(side="left", padx=(0, 5))
+
+        tk.Label(entry, text=label_text, font=("Segoe UI", 8), bg=CARD_BG, fg=TEXT_MUTED)\
+            .pack(side="left")
+
+    return legend_frame
