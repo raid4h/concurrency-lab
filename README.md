@@ -1,4 +1,4 @@
-# ConcurrencyLab
+# Concurrency Lab
 
 A Python desktop application that **demonstrates core Operating System concurrency concepts by actually reproducing them live**: race conditions, deadlock, and lost updates, rather than just describing them on slides.
 
@@ -40,7 +40,7 @@ python main.py
 That's it — no dependencies to install.
 
 ## Project structure
-concurrency-lab/
+concurrency-lab/ \
 ├── main.py entry point \
 ├── config.py shared constants \
 ├── theme.py forest color theme, shared UI helpers \
