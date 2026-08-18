@@ -35,7 +35,7 @@ Built entirely on **Python's standard library** — `tkinter`, `sqlite3`, `threa
 ## How to run
 git clone <https://github.com/raid4h/concurrency-lab> \
 cd concurrency-lab \
-python main.py \
+python main.py 
 
 That's it — no dependencies to install.
 
