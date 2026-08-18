@@ -45,11 +45,11 @@ concurrency-lab/
 ├── config.py shared constants \
 ├── theme.py forest color theme, shared UI helpers \
 ├── gui/ one file per tab \
-├── buffer.py, philosophers.py, multiproc_worker.py,
-│ readers_writers.py, deadlock_detector.py, file_processor.py
+├── buffer.py, philosophers.py, multiproc_worker.py, \
+│ readers_writers.py, deadlock_detector.py, file_processor.py \
 │ the actual concurrency logic per demo \
 ├── logger.py, stats.py SQLite logging + aggregation \
-├── test_*.py scripts used to verify race conditions/
-│ deadlocks actually reproduce as intended \
+├── test_*.py scripts used to verify race conditions/ \
+│ deadlocks actually reproduce as intended 
 
 
