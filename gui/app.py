@@ -14,6 +14,7 @@ from .readers_writers_tab import ReadersWritersTab
 from .deadlock_detector_tab import DeadlockDetectorTab
 from .file_processor_tab import FileProcessorTab  # practical thread-pool demo
 from .stats_tab import StatsTab
+from .word_count_tab import WordCountTab  # NEW: real-data system-calls benchmark, now the flagship tab
 
 
 class ConcurrencyLabApp:
@@ -32,18 +33,20 @@ class ConcurrencyLabApp:
         notebook.pack(fill="both", expand=True)
 
         # Create each tab (each one builds its own UI inside its own __init__)
+        wc_tab = WordCountTab(notebook)  # NEW, placed first - the flagship tab going forward
         pc_tab = ProducerConsumerTab(notebook)
         phil_tab = DiningPhilosophersTab(notebook)
         proc_tab = ProcessTab(notebook)
         rw_tab = ReadersWritersTab(notebook)
         dd_tab = DeadlockDetectorTab(notebook)
-        fp_tab = FileProcessorTab(notebook)  # NEW: practical thread-pool demo
+        fp_tab = FileProcessorTab(notebook)
         stats_tab = StatsTab(notebook)
 
+        notebook.add(wc_tab, text="  Real-Data Benchmark  ")
         notebook.add(pc_tab, text="  Producer – Consumer  ")
         notebook.add(phil_tab, text="  Dining Philosophers  ")
         notebook.add(proc_tab, text="  Multi-Process Counter  ")
         notebook.add(rw_tab, text="  Readers – Writers  ")
         notebook.add(dd_tab, text="  Deadlock Detector  ")
-        notebook.add(fp_tab, text="  File Processor  ")  # NEW
+        notebook.add(fp_tab, text="  File Processor  ")
         notebook.add(stats_tab, text="  Performance Stats  ")
